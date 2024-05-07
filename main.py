@@ -1,11 +1,14 @@
 import bson
 import datetime
 import telebot
+import json
+
+from key import APIKEY
+
+bot = telebot.TeleBot(APIKEY)
 
 with open('sample_collection.bson', 'rb') as file:
     DATA = sorted(bson.decode_all(file.read()), key=lambda x: x['dt'])
-
-
 
 prompt = {
    "dt_from": "2022-02-01T00:00:00",
@@ -58,5 +61,11 @@ def fill_in_blanks(data, group_type, dt_from, dt_upto):
             data['labels'].insert(i, labels[i])
     return data
 
+@bot.message_handler(regexp='.+')
+def message_handler(message):
+    prompt = json.loads(message.text)
+    prompt['dt_from'] = datetime.datetime.strptime(prompt['dt_from'], '%Y-%m-%dT%H:%M:%S')
+    prompt['dt_upto'] = datetime.datetime.strptime(prompt['dt_upto'], '%Y-%m-%dT%H:%M:%S')
+    bot.send_message(message.chat.id, text=json.dumps(fill_in_blanks(group_by(filter_by_dt(DATA, prompt['dt_from'], prompt['dt_upto']), prompt['group_type']), prompt['group_type'], prompt['dt_from'], prompt['dt_upto'])))
 
-print(fill_in_blanks(group_by(filter_by_dt(DATA, prompt['dt_from'], prompt['dt_upto']), prompt['group_type']), prompt['group_type'], prompt['dt_from'], prompt['dt_upto']))
+bot.polling(none_stop=True)
